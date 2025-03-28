@@ -2,7 +2,7 @@
 
 ✈️ A conversational AI assistant for managing flight bookings, hotels, car rentals, and travel recommendations with human-in-the-loop approval for sensitive operations.
 
-![Travel Assistant Flow](flow.png)
+![Travel Assistant Flow](output/flow.png)
 
 ## Features
 
@@ -112,5 +112,5 @@ The application includes a human-in-the-loop workflow for sensitive operations:
 5. Assistant continues based on user decision
 
 ## Results
-[!alt-text](output.gif)
+[!alt-text](output/output.gif)
 [Complete video](https://drive.google.com/drive/folders/1OVG9blaXnn4D4HvntLfc-QW4R7lrKAwC?usp=sharing)
