@@ -1,0 +1,16 @@
+langchain
+langchain-anthropic
+langchain-core
+langchain-community
+langgraph
+streamlit
+anthropic
+openai
+pandas
+numpy
+python-dotenv
+requests
+pydantic
+pytz
+tavily-python
+langsmith
