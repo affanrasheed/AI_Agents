@@ -34,12 +34,7 @@ The application is built using a clean, modular architecture:
 
 ### Installation
 
-1. Clone this repository:
-
-```bash
-git clone https://github.com/your-username/travel-assistant.git
-cd travel-assistant
-```
+1. Clone this repository
 
 2. Install dependencies:
 

@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agentic RAG System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom styles -->
+    <style>
+        .typing-indicator {
+            display: inline-block;
+            position: relative;
+            width: 50px;
+            height: 20px;
+        }
+        
+        .typing-indicator span {
+            position: absolute;
+            height: 8px;
+            width: 8px;
+            background-color: #3b82f6;
+            border-radius: 50%;
+            animation: typing-animation 1.5s infinite ease-in-out;
+        }
+        
+        .typing-indicator span:nth-child(1) {
+            left: 0;
+            animation-delay: 0s;
+        }
+        
+        .typing-indicator span:nth-child(2) {
+            left: 15px;
+            animation-delay: 0.2s;
+        }
+        
+        .typing-indicator span:nth-child(3) {
+            left: 30px;
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typing-animation {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        
+        .user-message {
+            background-color: #e9ecef;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .assistant-message {
+            background-color: #f0f9ff;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .debug-panel {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .step-card {
+            transition: all 0.3s ease;
+        }
+        
+        .step-card.active {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="mb-10 text-center">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Agentic RAG System</h1>
+            <p class="text-gray-600">Ask questions about Lilian Weng's blog posts on LLM agents, prompt engineering, and adversarial attacks</p>
+        </header>
+
+        <!-- Main content -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Chat panel -->
+            <div class="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-semibold text-gray-800">
+                        <i class="fas fa-comments mr-2 text-blue-500"></i>Chat
+                    </h2>
+                    <div>
+                        <button id="clearBtn" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition">
+                            <i class="fas fa-trash-alt mr-1"></i> Clear
+                        </button>
+                        <button id="settingsBtn" class="ml-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition">
+                            <i class="fas fa-cog mr-1"></i> Settings
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Chat history -->
+                <div id="chatHistory" class="mb-6 space-y-4 overflow-y-auto" style="max-height: 500px;">
+                    <!-- Messages will be inserted here -->
+                </div>
+
+                <!-- Typing indicator -->
+                <div id="typingIndicator" class="mb-4 ml-4 hidden">
+                    <div class="flex items-center">
+                        <span class="text-gray-500 mr-2">Assistant is thinking</span>
+                        <div class="typing-indicator">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Message input -->
+                <div class="mt-4">
+                    <form id="queryForm" class="flex">
+                        <input 
+                            id="queryInput" 
+                            type="text" 
+                            placeholder="Ask a question about Lilian Weng's blog posts..." 
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                        <button 
+                            type="submit" 
+                            id="sendBtn"
+                            class="px-6 py-3 bg-blue-500 text-white rounded-r-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition"
+                        >
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Debug panel -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-gray-800">
+                        <i class="fas fa-code-branch mr-2 text-blue-500"></i>Workflow Status
+                    </h2>
+                    <div class="relative inline-block">
+                        <button id="debugToggleBtn" class="text-blue-500 hover:text-blue-700">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Pipeline initialization status -->
+                <div class="mb-4 p-3 border border-gray-200 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <span class="font-medium">Pipeline Status:</span>
+                        <span id="pipelineStatus" class="px-2 py-1 rounded-full text-xs font-medium bg-gray-200">Not Initialized</span>
+                    </div>
+                </div>
+
+                <!-- Step cards -->
+                <div id="stepCards" class="mb-6 space-y-3">
+                    <div class="step-card p-3 border border-gray-200 rounded-lg" data-step="agent">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium">Agent</span>
+                            <span class="step-status px-2 py-1 rounded-full text-xs font-medium bg-gray-200">Pending</span>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">Decides whether to use tools or answer directly</p>
+                    </div>
+                    
+                    <div class="step-card p-3 border border-gray-200 rounded-lg" data-step="retrieve">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium">Retrieval</span>
+                            <span class="step-status px-2 py-1 rounded-full text-xs font-medium bg-gray-200">Pending</span>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">Retrieves relevant documents</p>
+                    </div>
+                    
+                    <div class="step-card p-3 border border-gray-200 rounded-lg" data-step="grade">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium">Grading</span>
+                            <span class="step-status px-2 py-1 rounded-full text-xs font-medium bg-gray-200">Pending</span>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">Evaluates document relevance</p>
+                    </div>
+                    
+                    <div class="step-card p-3 border border-gray-200 rounded-lg" data-step="rewrite">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium">Rewrite</span>
+                            <span class="step-status px-2 py-1 rounded-full text-xs font-medium bg-gray-200">Pending</span>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">Improves the query if needed</p>
+                    </div>
+                    
+                    <div class="step-card p-3 border border-gray-200 rounded-lg" data-step="generate">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium">Generate</span>
+                            <span class="step-status px-2 py-1 rounded-full text-xs font-medium bg-gray-200">Pending</span>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">Creates final answer</p>
+                    </div>
+                </div>
+
+                <!-- Debug logs (hidden by default) -->
+                <div id="debugLogs" class="debug-panel hidden border border-gray-200 rounded-lg p-3 bg-gray-50 text-xs font-mono h-64 overflow-y-auto">
+                    <!-- Debug logs will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold">Settings</h3>
+                <button id="closeSettingsBtn" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="urlsInput">
+                    Document URLs (one per line)
+                </label>
+                <textarea 
+                    id="urlsInput" 
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    rows="5"
+                >https://lilianweng.github.io/posts/2023-06-23-agent/
+https://lilianweng.github.io/posts/2023-03-15-prompt-engineering/
+https://lilianweng.github.io/posts/2023-10-25-adv-attack-llm/</textarea>
+            </div>
+            
+            <div class="flex justify-end">
+                <button 
+                    id="saveSettingsBtn" 
+                    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition"
+                >
+                    Initialize Pipeline
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM elements
+            const queryForm = document.getElementById('queryForm');
+            const queryInput = document.getElementById('queryInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const chatHistory = document.getElementById('chatHistory');
+            const typingIndicator = document.getElementById('typingIndicator');
+            const clearBtn = document.getElementById('clearBtn');
+            const settingsBtn = document.getElementById('settingsBtn');
+            const settingsModal = document.getElementById('settingsModal');
+            const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+            const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+            const urlsInput = document.getElementById('urlsInput');
+            const pipelineStatus = document.getElementById('pipelineStatus');
+            const stepCards = document.querySelectorAll('.step-card');
+            const debugToggleBtn = document.getElementById('debugToggleBtn');
+            const debugLogs = document.getElementById('debugLogs');
+            
+            // Initialize pipeline status
+            checkPipelineStatus();
+            
+            // Get conversation history
+            fetchHistory();
+            
+            // Form submission
+            queryForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const query = queryInput.value.trim();
+                if (!query) return;
+                
+                // Clear input
+                queryInput.value = '';
+                
+                // Disable send button during processing
+                sendBtn.disabled = true;
+                sendBtn.classList.add('opacity-50');
+                
+                // Add user message to chat
+                addMessage('user', query);
+                
+                // Show typing indicator
+                typingIndicator.classList.remove('hidden');
+                
+                // Reset step statuses
+                resetStepStatuses();
+                
+                try {
+                    // Send query to server
+                    const response = await fetch('/query', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ query }),
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        // Add assistant message to chat
+                        addMessage('assistant', data.answer);
+                        
+                        // Update debug logs
+                        updateDebugLogs(data.steps);
+                    } else {
+                        // Show error message
+                        addErrorMessage(data.message || 'An error occurred');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    addErrorMessage('Failed to process query');
+                } finally {
+                    // Hide typing indicator
+                    typingIndicator.classList.add('hidden');
+                    
+                    // Re-enable send button
+                    sendBtn.disabled = false;
+                    sendBtn.classList.remove('opacity-50');
+                }
+            });
+            
+            // Clear chat history
+            clearBtn.addEventListener('click', async function() {
+                const confirmed = confirm('Are you sure you want to clear the chat history?');
+                if (!confirmed) return;
+                
+                try {
+                    const response = await fetch('/clear', {
+                        method: 'POST',
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        chatHistory.innerHTML = '';
+                        debugLogs.innerHTML = '';
+                        resetStepStatuses();
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+            
+            // Settings modal
+            settingsBtn.addEventListener('click', function() {
+                settingsModal.classList.remove('hidden');
+            });
+            
+            closeSettingsBtn.addEventListener('click', function() {
+                settingsModal.classList.add('hidden');
+            });
+            
+            // Initialize pipeline with custom URLs
+            saveSettingsBtn.addEventListener('click', async function() {
+                const urls = urlsInput.value.trim().split('\n').filter(url => url.trim());
+                
+                if (urls.length === 0) {
+                    alert('Please enter at least one URL');
+                    return;
+                }
+                
+                try {
+                    // Update button state
+                    saveSettingsBtn.disabled = true;
+                    saveSettingsBtn.textContent = 'Initializing...';
+                    
+                    // Initialize pipeline
+                    const response = await fetch('/initialize', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ urls }),
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        alert('Pipeline initialized successfully');
+                        settingsModal.classList.add('hidden');
+                        updatePipelineStatus(true);
+                    } else {
+                        alert(data.message || 'Failed to initialize pipeline');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Failed to initialize pipeline');
+                } finally {
+                    // Reset button state
+                    saveSettingsBtn.disabled = false;
+                    saveSettingsBtn.textContent = 'Initialize Pipeline';
+                }
+            });
+            
+            // Toggle debug logs
+            debugToggleBtn.addEventListener('click', function() {
+                debugLogs.classList.toggle('hidden');
+                debugToggleBtn.innerHTML = debugLogs.classList.contains('hidden') 
+                    ? '<i class="fas fa-chevron-down"></i>' 
+                    : '<i class="fas fa-chevron-up"></i>';
+            });
+            
+            // Functions
+            function addMessage(role, content) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `${role}-message fade-in`;
+                
+                const roleLabel = role === 'user' ? 'You' : 'Assistant';
+                
+                messageDiv.innerHTML = `
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 mr-3">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center ${role === 'user' ? 'bg-blue-500' : 'bg-green-500'} text-white">
+                                <i class="fas ${role === 'user' ? 'fa-user' : 'fa-robot'}"></i>
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <p class="font-medium">${roleLabel}</p>
+                            <div class="mt-1">${formatContent(content)}</div>
+                        </div>
+                    </div>
+                `;
+                
+                chatHistory.appendChild(messageDiv);
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            }
+            
+            function addErrorMessage(message) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'p-3 bg-red-100 text-red-700 rounded-lg my-3 fade-in';
+                errorDiv.innerHTML = `<i class="fas fa-exclamation-circle mr-2"></i>${message}`;
+                chatHistory.appendChild(errorDiv);
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            }
+            
+            function formatContent(content) {
+                // Simple formatting for message content
+                // Replace newlines with <br>
+                return content.replace(/\n/g, '<br>');
+            }
+            
+            async function fetchHistory() {
+                try {
+                    const response = await fetch('/history');
+                    const data = await response.json();
+                    
+                    if (data.history && data.history.length > 0) {
+                        chatHistory.innerHTML = '';
+                        
+                        data.history.forEach(msg => {
+                            addMessage(msg.role, msg.content);
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error fetching history:', error);
+                }
+            }
+            
+            async function checkPipelineStatus() {
+                try {
+                    const response = await fetch('/status');
+                    const data = await response.json();
+                    
+                    updatePipelineStatus(data.initialized);
+                    
+                    if (data.processing) {
+                        typingIndicator.classList.remove('hidden');
+                    } else {
+                        typingIndicator.classList.add('hidden');
+                    }
+                    
+                    if (data.current_step) {
+                        updateStepStatus(data.current_step, 'active');
+                    }
+                } catch (error) {
+                    console.error('Error checking pipeline status:', error);
+                }
+            }
+            
+            function updatePipelineStatus(initialized) {
+                if (initialized) {
+                    pipelineStatus.textContent = 'Initialized';
+                    pipelineStatus.classList.remove('bg-gray-200');
+                    pipelineStatus.classList.add('bg-green-100', 'text-green-800');
+                } else {
+                    pipelineStatus.textContent = 'Not Initialized';
+                    pipelineStatus.classList.remove('bg-green-100', 'text-green-800');
+                    pipelineStatus.classList.add('bg-gray-200');
+                }
+            }
+            
+            function resetStepStatuses() {
+                stepCards.forEach(card => {
+                    card.classList.remove('active');
+                    const statusEl = card.querySelector('.step-status');
+                    statusEl.textContent = 'Pending';
+                    statusEl.className = 'step-status px-2 py-1 rounded-full text-xs font-medium bg-gray-200';
+                });
+            }
+            
+            function updateStepStatus(step, status) {
+                let stepCard;
+                
+                // Find the appropriate step card
+                if (step === 'grade_documents') {
+                    stepCard = document.querySelector('.step-card[data-step="grade"]');
+                } else {
+                    stepCard = document.querySelector(`.step-card[data-step="${step}"]`);
+                }
+                
+                if (!stepCard) return;
+                
+                const statusEl = stepCard.querySelector('.step-status');
+                
+                // Reset all cards
+                stepCards.forEach(card => {
+                    card.classList.remove('active');
+                });
+                
+                // Update status based on the state
+                if (status === 'active') {
+                    stepCard.classList.add('active');
+                    statusEl.textContent = 'In Progress';
+                    statusEl.className = 'step-status px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800';
+                } else if (status === 'completed') {
+                    stepCard.classList.remove('active');
+                    statusEl.textContent = 'Completed';
+                    statusEl.className = 'step-status px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800';
+                } else if (status === 'error') {
+                    stepCard.classList.remove('active');
+                    statusEl.textContent = 'Error';
+                    statusEl.className = 'step-status px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800';
+                }
+            }
+            
+            function updateDebugLogs(steps) {
+                if (!steps || steps.length === 0) return;
+                
+                debugLogs.innerHTML = '';
+                
+                steps.forEach((step, index) => {
+                    const stepDiv = document.createElement('div');
+                    stepDiv.className = 'mb-2 pb-2 border-b border-gray-200';
+                    
+                    // Get step name from the step object
+                    const stepName = step.step;
+                    
+                    // Update step status
+                    if (index === steps.length - 1) {
+                        updateStepStatus(stepName, 'active');
+                    } else {
+                        updateStepStatus(stepName, 'completed');
+                    }
+                    
+                    // Format the step content
+                    const content = step.content || 'No content';
+                    
+                    stepDiv.innerHTML = `
+                        <div class="font-bold text-xs text-blue-600 mb-1">${stepName}</div>
+                        <pre class="text-xs whitespace-pre-wrap">${content}</pre>
+                    `;
+                    
+                    debugLogs.appendChild(stepDiv);
+                });
+                
+                // Scroll to the bottom of the debug logs
+                debugLogs.scrollTop = debugLogs.scrollHeight;
+            }
+            
+            // Poll for pipeline status periodically
+            setInterval(checkPipelineStatus, 5000);
+        });
+    </script>
+</body>
+</html>

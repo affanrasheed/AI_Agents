@@ -1,0 +1,12 @@
+langchain-community
+tiktoken
+langchain-openai
+langchainhub
+chromadb
+langchain
+langgraph
+langchain-text-splitters
+beautifulsoup4
+flask
+python-dotenv
+pydantic
